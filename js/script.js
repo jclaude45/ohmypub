@@ -2,6 +2,11 @@
 (() => {
   "use strict";
 
+  /* --- Config --- */
+  // Colle ici l'URL "Catch Hook" fournie par Zapier après création du Zap.
+  // Exemple : https://hooks.zapier.com/hooks/catch/1234567/abcde12/
+  const ZAPIER_WEBHOOK_URL = "";
+
   /* --- Header scroll state --- */
   const header = document.getElementById("siteHeader");
   const onScroll = () => {
@@ -81,24 +86,32 @@
   window.addEventListener("scroll", updateActiveNav, { passive: true });
   updateActiveNav();
 
-  /* --- Contact form (client-side validation & feedback) --- */
+  /* --- Contact form (validation + Zapier webhook) --- */
   const form = document.getElementById("contactForm");
   const feedback = document.getElementById("formFeedback");
   if (form && feedback) {
-    form.addEventListener("submit", (e) => {
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const defaultBtnLabel = submitBtn ? submitBtn.textContent : "";
+
+    form.addEventListener("submit", async (e) => {
       e.preventDefault();
       feedback.className = "form-feedback";
       feedback.textContent = "";
 
       const data = new FormData(form);
-      const name = (data.get("name") || "").toString().trim();
-      const email = (data.get("email") || "").toString().trim();
-      const service = (data.get("service") || "").toString().trim();
-      const message = (data.get("message") || "").toString().trim();
+      const payload = {
+        name: (data.get("name") || "").toString().trim(),
+        email: (data.get("email") || "").toString().trim(),
+        phone: (data.get("phone") || "").toString().trim(),
+        service: (data.get("service") || "").toString().trim(),
+        message: (data.get("message") || "").toString().trim(),
+        submitted_at: new Date().toISOString(),
+        source: "oohmypub.com/contact",
+      };
 
-      const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email);
 
-      if (!name || !email || !service || !message) {
+      if (!payload.name || !payload.email || !payload.service || !payload.message) {
         feedback.classList.add("error");
         feedback.textContent = "Merci de remplir tous les champs requis.";
         return;
@@ -109,9 +122,37 @@
         return;
       }
 
-      feedback.classList.add("success");
-      feedback.textContent = `Merci ${name} ! Votre demande a bien été enregistrée, nous revenons vers vous sous 24h.`;
-      form.reset();
+      if (!ZAPIER_WEBHOOK_URL) {
+        feedback.classList.add("error");
+        feedback.textContent = "Formulaire non configuré. Merci de nous contacter par téléphone.";
+        return;
+      }
+
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Envoi en cours…";
+      }
+
+      try {
+        const res = await fetch(ZAPIER_WEBHOOK_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+
+        feedback.classList.add("success");
+        feedback.textContent = `Merci ${payload.name} ! Votre demande est enregistrée, nous revenons vers vous sous 24h.`;
+        form.reset();
+      } catch (err) {
+        feedback.classList.add("error");
+        feedback.textContent = "Oups, l'envoi a échoué. Réessayez ou écrivez-nous à Janclyeale@oohmypub.com.";
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = defaultBtnLabel;
+        }
+      }
     });
   }
 
