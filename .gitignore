@@ -1,0 +1,18 @@
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Raw uncompressed source images (versions web dans assets/portfolio/ et assets/gallery/)
+assets/Archive/
+
+# Editor / OS
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Dependencies (si on bascule un jour sur un bundler)
+node_modules/
+.cache/
+dist/
